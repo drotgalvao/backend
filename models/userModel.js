@@ -39,6 +39,12 @@ var userSchema = new mongoose.Schema(
       type: Array,
       default: [],
     },
+    orders: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Order", // Faça referência ao modelo Order
+      },
+    ],
     address: {
       type: String,
     },

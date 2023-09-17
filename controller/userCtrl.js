@@ -356,7 +356,7 @@ const userCart = asyncHandler(async (req, res) => {
     // check if user already have product in cart
     const alreadyExistCart = await Cart.findOne({ orderBy: user._id });
     if (alreadyExistCart) {
-      alreadyExistCart.remove();
+      await Cart.deleteOne({ _id: alreadyExistCart._id });
     }
     for (let i = 0; i < cart.length; i++) {
       let object = {};
@@ -372,12 +372,17 @@ const userCart = asyncHandler(async (req, res) => {
     for (let i = 0; i < products.length; i++) {
       cartTotal += products[i].price * products[i].count;
     }
-    console.log(products, cartTotal);
+
     let newCart = await new Cart({
       products,
       cartTotal,
       orderBy: user?._id,
     }).save();
+
+    await user.updateOne({ $set: { cart: [] } });
+    
+    await user.updateOne({ $push: { cart: newCart._id } });
+
     res.json(newCart);
   } catch (error) {
     throw new Error(error);
@@ -462,6 +467,16 @@ const createOrder = asyncHandler(async (req, res) => {
       orderBy: user._id,
       orderStatus: "Cash on Delivery",
     }).save();
+
+    await Cart.deleteOne({ orderBy: user._id });
+    const cart = await Cart.find({ orderBy: user._id });
+    user.cart = cart.map(item => item._id);
+
+    const orders = await Order.find({ orderBy: user._id });
+    user.orders = orders.map(order => order._id);
+
+    await user.save();
+
     let update = userCart.products.map((item) => {
       return {
         updateOne: {
@@ -500,6 +515,20 @@ const getAllOrders = asyncHandler(async (req, res) => {
     throw new Error(error);
   }
 });
+
+const getOrderByUserId = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  validateMongoDbId(id);
+  try {
+    const userOrders = await Order.findOne({ orderBy: id })
+    .populate("products.product")
+    .populate("orderBy")
+    .exec();
+    res.json(userOrders);
+  } catch (error) {
+    throw new Error(error);
+  }
+})
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
@@ -542,4 +571,5 @@ module.exports = {
   getOrders,
   updateOrderStatus,
   getAllOrders,
+  getOrderByUserId
 };
