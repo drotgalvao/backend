@@ -3,6 +3,7 @@ const Product = require("../models/productModel");
 const Cart = require("../models/cartModel");
 const Coupon = require("../models/couponModel");
 const Order = require("../models/orderModel");
+const Color = require("../models/colorModel");
 
 const uniqid = require("uniqid");
 
@@ -498,6 +499,7 @@ const getOrders = asyncHandler(async (req, res) => {
   try {
     const userOrders = await Order.findOne({ orderBy: _id })
     .populate("products.product")
+    // .populate("products.product.colors.title")
     .populate("orderBy");
     res.json(userOrders);
   } catch (error) {
@@ -510,6 +512,25 @@ const getAllOrders = asyncHandler(async (req, res) => {
     const allUserOrders = await Order.find()
     .populate("products.product")
     .populate("orderBy");
+
+    const colors = await Color.find({}, 'title');
+
+    const colorMap = {};
+    colors.forEach((color) => {
+      colorMap[color._id] = color.title;
+    });
+    
+    allUserOrders.forEach((order) => {
+      order.products.forEach((product) => {
+        if (product.color && colorMap[product.color]) {
+          const colorIdCopy = JSON.parse(JSON.stringify(product.color)); // Crie uma cópia profunda
+          product.color = {
+            title: colorMap[product.color],
+            _id: colorIdCopy
+          };
+        }
+      });
+    });
     res.json(allUserOrders);
   } catch (error) {
     throw new Error(error);
